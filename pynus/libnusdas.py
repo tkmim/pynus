@@ -6,6 +6,7 @@
 
 from ctypes import *
 import numpy as np
+from .nusparm import *
 from .nusenv import *
 
 libnus = CDLL(PATH_NUSDAS_LIB + "/libnusdas.so",mode = 1)
