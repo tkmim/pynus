@@ -105,7 +105,7 @@ def nusdas_grid(type1, type2, type3, basetime, member, validtime, getput):
         c_char_p, POINTER(c_int32), c_char_p, np.ctypeslib.ndpointer(dtype=np.int32), 
         np.ctypeslib.ndpointer(dtype=np.float32), c_char_p, c_char_p)
 
-
+    # Set argtypes and restype 
     icond = nusdas_grid_ct(type1, type2, type3, byref(c_int32(basetime)), member, 
         byref(c_int32(validtime)), proj, gridsize, gridinfo, value, getput)
 
@@ -121,10 +121,10 @@ def nusdas_parameter_change(param, value):
 
     """
 
+    # Set argtypes and restype  
     nusdas_parameter_change_ct = libnus.NuSDaS_parameter_change
     nusdas_parameter_change_ct.restype = c_int32
     nusdas_parameter_change_ct.argtypes = (c_int32,POINTER(c_int32))
-
 
     icond = nusdas_parameter_change_ct(c_int32(param), byref(c_int32(value)))
 
