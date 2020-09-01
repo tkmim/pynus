@@ -9,7 +9,7 @@ import numpy as np
 from .nusparm import *
 from .nusenv import *
 
-libnus = CDLL(PATH_NUSDAS_LIB + "/libnusdas.so",mode = 1)
+#libnus = CDLL(PATH_NUSDAS_LIB + "/libnusdas.so",mode = 1)
 
 
 def nusdas_read(type1, type2, type3, basetime, member, validtime, plane, element, data, fmt, size):
@@ -32,7 +32,7 @@ def nusdas_read(type1, type2, type3, basetime, member, validtime, plane, element
   OUTPUT:
   DATA      *
     """
-  
+
     type1=type1.encode()
     type2=type2.encode()
     type3=type3.encode()
@@ -42,6 +42,9 @@ def nusdas_read(type1, type2, type3, basetime, member, validtime, plane, element
     fmt=fmt.encode()
 
 
+    if ('libnus' in vars()):
+        CloseLibrary(libnus)
+    libnus = CDLL(PATH_NUSDAS_LIB + "/libnusdas.so",mode = 1)
     # Define datatype
     if  (fmt==b'R4'):
         # f4 real
@@ -86,6 +89,10 @@ def nusdas_grid(type1, type2, type3, basetime, member, validtime, getput):
   
     """
 
+    if ('libnus' in vars()):
+        CloseLibrary(libnus)
+    libnus = CDLL(PATH_NUSDAS_LIB + "/libnusdas.so",mode = 1)
+
     type1=type1.encode()
     type2=type2.encode()
     type3=type3.encode()
@@ -121,6 +128,9 @@ def nusdas_parameter_change(param, value):
 
     """
 
+    if ('libnus' in vars()):
+        CloseLibrary(libnus)
+    libnus = CDLL(PATH_NUSDAS_LIB + "/libnusdas.so",mode = 1)
     # Set argtypes and restype  
     nusdas_parameter_change_ct = libnus.NuSDaS_parameter_change
     nusdas_parameter_change_ct.restype = c_int32
@@ -135,4 +145,9 @@ def nusdas_parameter_change(param, value):
 
 
 
-    
+def CloseLibrary(lib):
+    dlclose_func = CDLL(None).dlclose
+    dlclose_func.argtypes = [c_void_p]
+    dlclose_func.restype = c_int
+
+    dlclose_func(lib._handle)
