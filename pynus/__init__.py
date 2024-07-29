@@ -1,5 +1,4 @@
 # pynus
-# Copyright (c) 2020 Takumi Matsunobu
-# This software is released under the MIT License, see LICENSE file.
+# Copyright (c) 2024 Takumi Matsunobu
 
-
+__version__ = "0.0.1"
