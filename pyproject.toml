@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pynusdas"
+version = "0.0.1a"
+dependencies = [
+"numpy",
+"xarray",
+"scipy",
+]
+requires-python = ">=3.9"
+readme = "README.md"
+description = "Python interface for the JMA's NuSDaS format"
+license = {file = "LICENSE"}
+classifiers = [
+"Development Status :: 3 - Alpha",
+"Intended Audience :: Science/Research",
+]
+
+[project.urls]
+Homepage = "https://github.com/tkmim/pynus"
+Repository = "https://github.com/tkmim/pynus.git"
