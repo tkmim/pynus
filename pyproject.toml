@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pynusdas"
-version = "0.0.1a"
+dynamic = ["version"]
 dependencies = [
 "numpy",
 "xarray",
@@ -22,3 +22,6 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/tkmim/pynus"
 Repository = "https://github.com/tkmim/pynus.git"
+
+[tool.setuptools.dynamic]
+version = {attr = "pynus.__version__"}

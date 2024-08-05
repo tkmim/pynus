@@ -139,5 +139,6 @@ cython_debug/
 
 # test datasets
 test.ipynb
-tests/fcst_mdl.nus
+tests/data/
+tests/tmp/
 publish.sh

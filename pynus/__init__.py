@@ -1,4 +1,11 @@
-# pynus
-# Copyright (c) 2024 Takumi Matsunobu
+"""pynus: """
 
-__version__ = "0.0.1"
+from pynus.decode import decode_nusdas
+
+def get_version():
+    from pathlib import Path
+    version_path = Path(__file__).parents[1] / "VERSION"
+    with version_path.open() as version_file:
+        return version_file.read().strip()
+
+__version__ = get_version()
