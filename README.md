@@ -1,4 +1,6 @@
 # pynus
+![PyPI - Version](https://img.shields.io/pypi/v/pynusdas)
+![Static Badge](https://img.shields.io/badge/NuSDaS-_13---blue)
 
 A python library enabling to handle files in the NuSDaS format operationally used in the NWP systems in JMA.
 
