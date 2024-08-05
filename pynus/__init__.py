@@ -1,11 +1,6 @@
 """pynus: """
 
 from pynus.decode import decode_nusdas
+from importlib.metadata import version
 
-def get_version():
-    from pathlib import Path
-    version_path = Path(__file__).parents[1] / "VERSION"
-    with version_path.open() as version_file:
-        return version_file.read().strip()
-
-__version__ = get_version()
+__version__ = version(__package__)
