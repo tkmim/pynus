@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pynusdas"
-version = "0.0.1a0"
+version = "0.0.2a0"
 dependencies = [
 "numpy",
 "xarray",
@@ -22,3 +22,7 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/tkmim/pynus"
 Repository = "https://github.com/tkmim/pynus.git"
+
+[project.entry-points."xarray.backends"]
+pynus = "pynus.backend:BinaryBackend"
+pynusdas = "pynus.backend:BinaryBackend"
