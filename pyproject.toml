@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pynusdas"
-version = "0.0.2a0"
+version = "0.0.2"
 dependencies = [
 "numpy",
 "xarray",

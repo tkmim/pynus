@@ -1,19 +1,19 @@
 # pynus
 [![PyPI - Version](https://img.shields.io/pypi/v/pynusdas)](https://pypi.org/project/pynusdas/)
-![Static Badge](https://img.shields.io/badge/NuSDaS-_13---blue)
+![Static Badge](https://img.shields.io/badge/NuSDaS-_1.1---blue)
 
 A python library enabling to handle files in the NuSDaS format operationally used in the NWP systems in JMA.  
 You will find Japanese readme [below](#Japanese).
 
 ## Usage
 
-***Install using pip***
+***Install using pip***  
 I like the name "pynus", but this library is distibuted as "pynusdas" package in PyPI. 
 ```sh
 pip install pynusdas
 ```
 
-***Feed a NuSDaS file and get full xarray Datasets***
+***Feed a NuSDaS file and get full xarray Datasets***  
 `decode_nusdas` function returns you fully loaded xarray Datasets. This is handy when you want to simply convert the entire dataset into netcdf.  
 ```Python
 from pynus import decode_nusdas
@@ -24,7 +24,7 @@ mdls.to_netcdf(f"./data/MF10km_MDLL_200910070000.nc")
 surfs.to_netcdf(f"./data/MF10km_SURF_200910070000.nc")
 ```
 
-***Lazy-loading with xarray using pynus as an engine***
+***Lazy-loading with xarray using pynus as an engine***  
 You can also use `xr.open_dataset` function with specifying `engine='pynus'` or `engine='pynusdas'`. More suitable when you handle a dataset intreactively e.g. in jupyter notebook. 
 ```Python
 mdls = xr.open_dataset(f"./data/fcst_mdl.nus/ZSSTD1/200910070000",
@@ -55,8 +55,9 @@ PyPIでは "pynusdas" パッケージとして登録されているため以下�
 pip install pynusdas
 ```
 
-***Feed a NuSDaS file and get full xarray Datasets***  
-`decode_nusdas` function returns you fully loaded xarray Datasets. This is handy when you would like to simply convert datasets into netcdf.  
+***NuSDaSファイルを丸ごと読み込む***  
+`decode_nusdas` 関数にNuSDaSファイルのパスを渡すことで全ての変数をxarray datasetとして読み込みます。返されるデータセットは地上と大気成分に別れた2つのデータセットです。この関数はnetcdf形式への変換などデータセット全体に対し作業するときに便利です。
+
 ```Python
 from pynus import decode_nusdas
 
@@ -66,8 +67,8 @@ mdls.to_netcdf(f"./data/MF10km_MDLL_200910070000.nc")
 surfs.to_netcdf(f"./data/MF10km_SURF_200910070000.nc")
 ```
 
-***Lazy-loading with xarray using pynus as an engine***  
-You can also use `xr.open_dataset` function with specifying `pynus` or `pynusdas` as an external backend. 
+***xarray.open_datasetを用いて逐次読み込む***  
+`xr.open_dataset`関数の引数に`engine="pynus"`または`engine="pynusdas"`を指定することでnetcdfファイルの読み込みと同じ感覚で作業することも可能です。Jupyter notebookでの描画などデータのごく一部のみを逐次読み出すときに便利です。
 ```Python
 mdls = xr.open_dataset(f"./data/fcst_mdl.nus/ZSSTD1/200910070000",
                           engine="pynus", chunks={"x": 19, "y": 17},)
