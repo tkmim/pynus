@@ -7,6 +7,8 @@ import xarray as xr
 import logging
 
 
+# set up the logger and set the logging level
+logger = logging.getLogger(__name__)
 
 class BinaryBackend(xr.backends.BackendEntrypoint):
     """Backend class for xr.open_dataset"""
@@ -39,13 +41,13 @@ class BinaryBackend(xr.backends.BackendEntrypoint):
             data = xr.core.indexing.LazilyIndexedArray(backend_array)
             if record[2] == 'SURF  ':
                 # difficult to load surface and upper-atmospheric variables with keeping consistancy
-                df = xr.DataArray(dims=("y","x"), data=data).rename(record[1]).expand_dims(dim={"init_time": coords["init_time"], "ft": coords["ft"]}, axis=[-2,-1])
+                df = xr.DataArray(dims=("y","x"), data=data).rename(record[1]).expand_dims(dim={"init_time": coords["init_time"], "ft": coords["ft"]}, axis=[-2,-1]).transpose("x", "y","init_time","ft")
             else:
-                df = xr.DataArray(dims=("y","x"), data=data).rename(record[1]).expand_dims(dim={"level":[int(record[2])],"init_time": coords["init_time"], "ft": coords["ft"]}, axis=[-3,-2,-1])
+                df = xr.DataArray(dims=("y","x"), data=data).rename(record[1]).expand_dims(dim={"level":[int(record[2])], "init_time": coords["init_time"], "ft": coords["ft"]}, axis=[-3,-2,-1]).transpose("x", "y","level","init_time","ft")
             arra.append(df)
                     
         # return xr.merge(arra) # xr.merge() is much slower
-        return xr.combine_by_coords(arra).assign_coords(valid_time=(("init_time", "ft"),[coords["valid_time"]])).transpose("y", "x","level","init_time","ft")
+        return xr.combine_by_coords(arra).assign_coords(valid_time=(("init_time", "ft"),[coords["valid_time"]]))
     
     def _read_metadata(self, f):
         dtim_base = datetime.datetime(1801, 1, 1, 0, 0)  # base datetime counted by minutes
@@ -58,7 +60,7 @@ class BinaryBackend(xr.backends.BackendEntrypoint):
             (_,) = unpack(">I", f.read(4))
             (time,) = unpack(">I", f.read(4))
             create_time = datetime.datetime.fromtimestamp(time, datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-            # logger.debug(f"{c_header}, {record_length}, {create_time}")
+            logger.debug(f"{c_header}, {record_length}, {create_time}")
 
             if c_header == "NUSD":
                 prod = f.read(72).decode("utf-8")
@@ -66,7 +68,7 @@ class BinaryBackend(xr.backends.BackendEntrypoint):
                 (nus_version,) = unpack(">I", f.read(4))
                 (filesize,) = unpack(">I", f.read(4))
                 (nrecords,) = unpack(">I", f.read(4))
-                # logger.info(f"File header: Producer: {prod}, NuSDaS version: {nus_version}, N: {nrecords} records")
+                logger.info(f"File header: Producer: {prod}, NuSDaS version: {nus_version}, N: {nrecords} records")
 
                 # assert ifilesize == filesize, "Input file size mismatches with the header."
 
@@ -90,7 +92,7 @@ class BinaryBackend(xr.backends.BackendEntrypoint):
                 (_,) = unpack(">I", f.read(4))
 
                 ftm = validm - initm
-                # logger.info(f"Time info: init: {iymdh}, valid:{vymdh}, ft:{ftm}")
+                logger.info(f"Time info: init: {iymdh}, valid:{vymdh}, ft:{ftm}")
 
             if c_header == "DATA":
                 _ = f.read(4).decode("utf-8")
@@ -102,7 +104,7 @@ class BinaryBackend(xr.backends.BackendEntrypoint):
 
                 c_level = f.read(12).decode("utf-8")[:6]  # lebel name
                 c_element = f.read(6).decode("utf-8").strip()  # element name
-                # logger.debug(f"DATA variable: {c_element}, level: {c_level}, valid time: {dtim_base + datetime.timedelta(minutes=nt1)}")
+                logger.debug(f"DATA variable: {c_element}, level: {c_level}, valid time: {dtim_base + datetime.timedelta(minutes=nt1)}")
 
                 f.seek(2, 1)  # skip the reserved blank
                 (nx,) = unpack(">I", f.read(4))
@@ -176,14 +178,15 @@ class BinaryBackendArray(xr.backends.BackendArray):
         c_packing = f.read(4).decode("utf-8")
         c_missing = f.read(4).decode("utf-8")
 
-        if c_packing != "2UPC":
+        if c_packing == "2UPC":
             # currently only unpacking 2UPC
+            base = unpack(">f", f.read(4))[0]
+            ampl = unpack(">f", f.read(4))[0]
+            pack = np.array([i[0] for i in iter_unpack(">H".format(nx * ny), f.read(nx * ny * 2))]).reshape(ny, nx)
+            values = base + ampl * pack
+        else:
             # TODO: implement other packing methods
             raise ValueError("Unsupported packing method: {}".format(c_packing))
 
-        base = unpack(">f", f.read(4))[0]
-        ampl = unpack(">f", f.read(4))[0]
-        pack = np.array([i[0] for i in iter_unpack(">H".format(nx * ny), f.read(nx * ny * 2))]).reshape(ny, nx)
-        values = base + ampl * pack
         return values[::-1, :]
     

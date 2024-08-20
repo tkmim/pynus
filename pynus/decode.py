@@ -8,15 +8,8 @@ import logging
 
 # set up the logger and set the logging level
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
-# generate a handler
-stream_handler = logging.StreamHandler()
-stream_handler.setLevel(logging.INFO)
-logger.addHandler(stream_handler)
-
-
-def decode_nusdas(fname):
+def decode_nusdas(fname, *, variables=None):
     """
     Decode a NuSDaS file and return the decoded data as xarray Datasets.
 
@@ -106,10 +99,11 @@ def decode_nusdas(fname):
                 c_element = f.read(6).decode("utf-8").strip()  # element name
                 logger.debug(f"DATA variable: {c_element}, level: {c_level}, valid time: {dtim_base + datetime.timedelta(minutes=nt1)}")
 
-                # currently only unpacking the following elements
-                if c_element not in ["RU", "RV", "RW", "QV", "DNSG2", "PSEA", "PRS", "SMQR"]:
-                    f.seek(head_pos + record_length + 8, 0)
-                    continue
+                # skip undesired vairables
+                if variables is not None:
+                    if c_element not in variables:
+                        f.seek(head_pos + record_length + 8, 0)
+                        continue
 
                 dtims.append(dtim_base + datetime.timedelta(minutes=nt1))
                 levels.append(c_level)
