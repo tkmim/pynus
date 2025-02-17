@@ -12,7 +12,12 @@ logger = logging.getLogger(__name__)
 
 class BinaryBackend(xr.backends.BackendEntrypoint):
     """Backend class for xr.open_dataset"""
-    def open_dataset(self, filename_or_obj, *, drop_variables=None, dtype=np.float64):
+    def open_dataset(self, filename_or_obj, *, drop_variables=None, keep_variables=None, dtype=np.float64):
+        
+        # Consistency check
+        if (drop_variables is not None) and (keep_variables is not None):
+            raise ValueError("Both drop_variables and keep_variables cannot be specified at the same time.")
+        
         with open(filename_or_obj, mode="rb") as f:
             meta = self._read_metadata(f)
 
@@ -23,8 +28,13 @@ class BinaryBackend(xr.backends.BackendEntrypoint):
         }
 
         records_list = meta["datas"]
-        shape = records_list[0][3]
-        size = np.dtype(dtype).itemsize
+
+        if drop_variables is not None:
+            drop_variables = set(drop_variables)
+        elif keep_variables is not None:
+            drop_variables = set([vv for vv in [record[1] for record in records_list] if vv not in keep_variables])
+        else:
+            drop_variables = set()
 
         # Build a dictionary of variables first, then create a single Dataset
         data_dict = {}
@@ -36,7 +46,7 @@ class BinaryBackend(xr.backends.BackendEntrypoint):
             # setup a backend helper
             backend_array = BinaryBackendArray(
                 filename_or_obj=filename_or_obj,
-                shape=shape,
+                shape=record[3],
                 dtype=dtype,
                 lock=lock,
                 position=record[4],
@@ -48,23 +58,23 @@ class BinaryBackend(xr.backends.BackendEntrypoint):
             if varname in drop_variables:
                 continue
             if level_str == "SURF":
-                data_dict.setdefault(var name, {})["SURF"] = xr.DataArray(data, dims=("y", "x"))
+                data_dict.setdefault(varname, {})["SURF"] = xr.DataArray(data, dims=("y", "x"))
             else:
                 lvl = int(level_str)
                 data_dict.setdefault(varname, {})[lvl] = xr.DataArray(data, dims=("y", "x"))
 
-            # Comcatenate the data arrays for each variable
-            # the most time-consuming part of the process
-            # ca. 5 seconds for each variable; could not be faster with any concatenation methods tried
-            ds_vars = {}
-            for var, levels in data_dict.items():
-                if "SURF" in levels:
-                    ds_vars[var] = levels["SURF"]
-                else:
-                    sorted_lvls = sorted(levels.keys())
-                    # tried xr.merge, xr.concat_by_coords, combine_nested, xr.Variable.concat
-                    # but all did not work faster
-                    ds_vars[var] = xr.concat([levels[l] for l in sorted_lvls], dim="level").assign_coords(level=sorted_lvls)
+        # Comcatenate the data arrays for each variable
+        # the most time-consuming part of the process
+        # ca. 5 seconds for each variable; could not be faster with any concatenation methods tried
+        ds_vars = {}
+        for var, levels in data_dict.items():
+            if "SURF" in levels:
+                ds_vars[var] = levels["SURF"]
+            else:
+                sorted_lvls = sorted(levels.keys())
+                # tried xr.merge, xr.concat_by_coords, combine_nested, xr.Variable.concat
+                # but all did not work faster
+                ds_vars[var] = xr.concat([levels[l] for l in sorted_lvls], dim="level").assign_coords(level=sorted_lvls)
 
         # Create a Dataset from dataarrays and adjust time dimensions
         ds = xr.Dataset(ds_vars).expand_dims(init_time=coords["init_time"], ft=coords["ft"])
