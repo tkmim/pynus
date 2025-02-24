@@ -12,7 +12,12 @@ logger = logging.getLogger(__name__)
 
 class BinaryBackend(xr.backends.BackendEntrypoint):
     """Backend class for xr.open_dataset"""
-    def open_dataset(self, filename_or_obj, *, drop_variables=None, dtype=np.float64):
+    def open_dataset(self, filename_or_obj, *, drop_variables=None, keep_variables=None, dtype=np.float64):
+        
+        # Consistency check
+        if (drop_variables is not None) and (keep_variables is not None):
+            raise ValueError("Both drop_variables and keep_variables cannot be specified at the same time.")
+        
         with open(filename_or_obj, mode="rb") as f:
             meta = self._read_metadata(f)
 
@@ -23,32 +28,60 @@ class BinaryBackend(xr.backends.BackendEntrypoint):
         }
 
         records_list = meta["datas"]
-        shape = records_list[0][3]
-        size = np.dtype(dtype).itemsize
 
+        if drop_variables is not None:
+            drop_variables = set(drop_variables)
+        elif keep_variables is not None:
+            drop_variables = set([vv for vv in [record[1] for record in records_list] if vv not in keep_variables])
+        else:
+            drop_variables = set()
 
-        arra = []
+        # Build a dictionary of variables first, then create a single Dataset
+        data_dict = {}
+        lock = dask.utils.SerializableLock()
+
+        # Create a nested dictionary of DataArrays, which will be concatenated later
+        # faster than creating DataArrays and directly concatenating them one by one
         for record in records_list:
-            
             # setup a backend helper
             backend_array = BinaryBackendArray(
                 filename_or_obj=filename_or_obj,
-                shape=shape,
+                shape=record[3],
                 dtype=dtype,
-                lock=dask.utils.SerializableLock(),
+                lock=lock,
                 position=record[4],
             )
             data = xr.core.indexing.LazilyIndexedArray(backend_array)
-            if record[2] == 'SURF  ':
-                # difficult to load surface and upper-atmospheric variables with keeping consistancy
-                df = xr.DataArray(dims=("y","x"), data=data).rename(record[1]).expand_dims(dim={"init_time": coords["init_time"], "ft": coords["ft"]}, axis=[-2,-1]).transpose("x", "y","init_time","ft")
+            varname = record[1]
+            level_str = record[2].strip()
+            # Organize surface vs. other levels
+            if varname in drop_variables:
+                continue
+            if level_str == "SURF":
+                data_dict.setdefault(varname, {})["SURF"] = xr.DataArray(data, dims=("y", "x"))
             else:
-                df = xr.DataArray(dims=("y","x"), data=data).rename(record[1]).expand_dims(dim={"level":[int(record[2])], "init_time": coords["init_time"], "ft": coords["ft"]}, axis=[-3,-2,-1]).transpose("x", "y","level","init_time","ft")
-            arra.append(df)
-                    
-        # return xr.merge(arra) # xr.merge() is much slower
-        return xr.combine_by_coords(arra).assign_coords(valid_time=(("init_time", "ft"),[coords["valid_time"]]))
-    
+                lvl = int(level_str)
+                data_dict.setdefault(varname, {})[lvl] = xr.DataArray(data, dims=("y", "x"))
+
+        # Comcatenate the data arrays for each variable
+        # the most time-consuming part of the process
+        # ca. 5 seconds for each variable; could not be faster with any concatenation methods tried
+        ds_vars = {}
+        for var, levels in data_dict.items():
+            if "SURF" in levels:
+                ds_vars[var] = levels["SURF"]
+            else:
+                sorted_lvls = sorted(levels.keys())
+                # tried xr.merge, xr.concat_by_coords, combine_nested, xr.Variable.concat
+                # but all did not work faster
+                ds_vars[var] = xr.concat([levels[l] for l in sorted_lvls], dim="level").assign_coords(level=sorted_lvls)
+
+        # Create a Dataset from dataarrays and adjust time dimensions
+        ds = xr.Dataset(ds_vars).expand_dims(init_time=coords["init_time"], ft=coords["ft"])
+        ds = ds.transpose("x", "y", "level", "init_time", "ft", missing_dims="ignore")
+
+        return ds
+
     def _read_metadata(self, f):
         dtim_base = datetime.datetime(1801, 1, 1, 0, 0)  # base datetime counted by minutes
 
@@ -104,7 +137,9 @@ class BinaryBackend(xr.backends.BackendEntrypoint):
 
                 c_level = f.read(12).decode("utf-8")[:6]  # lebel name
                 c_element = f.read(6).decode("utf-8").strip()  # element name
-                logger.debug(f"DATA variable: {c_element}, level: {c_level}, valid time: {dtim_base + datetime.timedelta(minutes=nt1)}")
+                logger.debug(
+                    f"DATA variable: {c_element}, level: {c_level}, valid time: {dtim_base + datetime.timedelta(minutes=nt1)}"
+                )
 
                 f.seek(2, 1)  # skip the reserved blank
                 (nx,) = unpack(">I", f.read(4))
@@ -125,17 +160,11 @@ class BinaryBackend(xr.backends.BackendEntrypoint):
 
         return {"init": iymdh, "valid": vymdh, "ft": ftm, "datas": datas}
 
-    
+
 class BinaryBackendArray(xr.backends.BackendArray):
     """Backend helper for lazy-loading"""
-    def __init__(
-        self,
-        filename_or_obj,
-        shape,
-        dtype,
-        lock,
-        position
-    ):
+
+    def __init__(self, filename_or_obj, shape, dtype, lock, position):
         self.filename_or_obj = filename_or_obj
         self.shape = shape
         self.dtype = dtype
@@ -170,7 +199,7 @@ class BinaryBackendArray(xr.backends.BackendArray):
             arr = arr.squeeze()
 
         return arr
-    
+
     def _read_values(self, f, position):
         f.seek(position, 0)
         (nx,) = unpack(">I", f.read(4))
@@ -189,4 +218,3 @@ class BinaryBackendArray(xr.backends.BackendArray):
             raise ValueError("Unsupported packing method: {}".format(c_packing))
 
         return values[::-1, :]
-    
