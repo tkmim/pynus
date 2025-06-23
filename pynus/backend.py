@@ -211,7 +211,7 @@ class BinaryBackendArray(xr.backends.BackendArray):
             # currently only unpacking 2UPC
             base = unpack(">f", f.read(4))[0]
             ampl = unpack(">f", f.read(4))[0]
-            pack = np.array([i[0] for i in iter_unpack(">H".format(nx * ny), f.read(nx * ny * 2))]).reshape(ny, nx)
+            pack = np.array([i[0] for i in iter_unpack(">H", f.read(nx * ny * 2))]).reshape(ny, nx)
             values = base + ampl * pack
         else:
             # TODO: implement other packing methods
